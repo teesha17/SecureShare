@@ -1,49 +1,38 @@
 import { useState, useEffect } from "react";
 import {
-  AppBar,
-  Toolbar,
-  Typography,
-  Button,
-  Container,
-  Grid,
-  Card,
-  CardContent,
-  CardHeader,
-  IconButton,
-  Tabs,
-  Tab,
-  Box,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
+  AppBar, Toolbar, Typography, Button, Container, Grid, Card,
+  CardContent, CardHeader, Tabs, Tab, Box, Dialog, DialogTitle,
+  DialogContent, DialogActions, TextField, List, ListItem,
+  ListItemText, CircularProgress
 } from "@mui/material";
 import { Logout, Visibility, Download, Share, Shield } from "@mui/icons-material";
-
-// Dummy data for files
-const dummyFiles = [
-  {
-    id: 1,
-    name: "report.pdf",
-    size: 102400,
-    uploadedBy: "me",
-    uploadedAt: new Date().toISOString(),
-    encryptedAESKey: "xxxx...",
-    iv: "yyyy...",
-    encryptedData: "zzzz...",
-  },
-];
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 export default function Dashboard() {
   const [files, setFiles] = useState([]);
   const [tab, setTab] = useState(0);
   const [selectedFile, setSelectedFile] = useState(null);
   const [decryptedPreview, setDecryptedPreview] = useState("");
+  const [openSendDialog, setOpenSendDialog] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Load files (later replace with API/localStorage)
-    setFiles(dummyFiles);
+    // load files (dummy now)
+    setFiles([
+      {
+        id: 1,
+        name: "report.pdf",
+        size: 102400,
+        uploadedBy: "me",
+        uploadedAt: new Date().toISOString(),
+        encryptedAESKey: "xxxx...",
+        iv: "yyyy...",
+        encryptedData: "zzzz...",
+      },
+    ]);
   }, []);
 
   const formatSize = (bytes) => {
@@ -52,6 +41,24 @@ export default function Dashboard() {
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/signup");
+  };
+
+  const handleOpenSendDialog = async () => {
+    setOpenSendDialog(true);
+    setLoadingUsers(true);
+    try {
+      const res = await axios.get("/api/users/public-keys");
+      setUsers(res.data.data);
+    } catch (error) {
+      console.error("Failed to fetch users", error);
+    } finally {
+      setLoadingUsers(false);
+    }
   };
 
   return (
@@ -74,7 +81,7 @@ export default function Dashboard() {
             variant="outlined"
             startIcon={<Logout />}
             color="error"
-            onClick={() => alert("Logged out")}
+            onClick={handleLogout}
           >
             Logout
           </Button>
@@ -86,6 +93,7 @@ export default function Dashboard() {
         <Tabs value={tab} onChange={(e, newValue) => setTab(newValue)} centered>
           <Tab label="My Files" />
           <Tab label="Access Logs" />
+          <Tab label="Send File" />
         </Tabs>
 
         {/* My Files */}
@@ -124,20 +132,15 @@ export default function Dashboard() {
                         variant="outlined"
                         size="small"
                         startIcon={<Share />}
-                        onClick={() => alert("Share file")}
+                        onClick={handleOpenSendDialog}
                       >
-                        Share
+                        Send
                       </Button>
                     </Box>
                   </CardContent>
                 </Card>
               </Grid>
             ))}
-            {files.length === 0 && (
-              <Typography textAlign="center" sx={{ mt: 4, width: "100%" }}>
-                No files yet. Upload your first file!
-              </Typography>
-            )}
           </Grid>
         )}
 
@@ -150,66 +153,71 @@ export default function Dashboard() {
             </Typography>
           </Box>
         )}
+
+        {/* Send File Section */}
+        {tab === 2 && (
+          <Box mt={4} textAlign="center">
+            <Typography variant="h6" gutterBottom>
+              Send Files Securely
+            </Typography>
+            <Button variant="contained" onClick={handleOpenSendDialog}>
+              Choose Recipient
+            </Button>
+          </Box>
+        )}
       </Container>
 
-      {/* File Preview Dialog */}
-      <Dialog
-        open={!!selectedFile}
-        onClose={() => setSelectedFile(null)}
-        maxWidth="md"
-        fullWidth
-      >
+      {/* File Preview Dialog (unchanged) */}
+      <Dialog open={!!selectedFile} onClose={() => setSelectedFile(null)} maxWidth="md" fullWidth>
         <DialogTitle>File Preview: {selectedFile?.name}</DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" gutterBottom>
             Encrypted AES Key:
           </Typography>
-          <TextField
-            fullWidth
-            multiline
-            value={selectedFile?.encryptedAESKey || ""}
-            InputProps={{ readOnly: true }}
-            sx={{ mb: 2 }}
-          />
+          <TextField fullWidth multiline value={selectedFile?.encryptedAESKey || ""} InputProps={{ readOnly: true }} sx={{ mb: 2 }} />
           <Typography variant="body2" gutterBottom>
             Initialization Vector (IV):
           </Typography>
-          <TextField
-            fullWidth
-            multiline
-            value={selectedFile?.iv || ""}
-            InputProps={{ readOnly: true }}
-            sx={{ mb: 2 }}
-          />
+          <TextField fullWidth multiline value={selectedFile?.iv || ""} InputProps={{ readOnly: true }} sx={{ mb: 2 }} />
           <Typography variant="body2" gutterBottom>
             Encrypted File Data:
           </Typography>
-          <TextField
-            fullWidth
-            multiline
-            value={selectedFile?.encryptedData.substring(0, 200) + "..."}
-            InputProps={{ readOnly: true }}
-            sx={{ mb: 2 }}
-          />
-
-          <Button
-            variant="contained"
-            onClick={() => setDecryptedPreview("This is a preview of decrypted text...")}
-          >
-            Decrypt & Preview
-          </Button>
-
-          {decryptedPreview && (
-            <Box mt={3} p={2} bgcolor="grey.100" borderRadius={2}>
-              <Typography variant="subtitle2" color="success.main">
-                Decrypted Preview:
-              </Typography>
-              <Typography fontFamily="monospace">{decryptedPreview}</Typography>
-            </Box>
-          )}
+          <TextField fullWidth multiline value={selectedFile?.encryptedData.substring(0, 200) + "..."} InputProps={{ readOnly: true }} sx={{ mb: 2 }} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setSelectedFile(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Send File Dialog (User list) */}
+      <Dialog open={openSendDialog} onClose={() => setOpenSendDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Select Recipient</DialogTitle>
+        <DialogContent dividers>
+          {loadingUsers ? (
+            <CircularProgress />
+          ) : (
+            <List>
+              {users.map((u) => (
+                <ListItem
+                  button
+                  key={u.email}
+                  onClick={() => {
+                    alert(`Send file to ${u.email} using publicKey:\n${u.publicKey}`);
+                    setOpenSendDialog(false);
+                  }}
+                >
+                  <ListItemText
+                    primary={u.email}
+                    secondary={u.publicKey.substring(0, 40) + "..."}
+                  />
+                </ListItem>
+              ))}
+              {users.length === 0 && <Typography>No users found</Typography>}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenSendDialog(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>
